@@ -32,8 +32,33 @@ namespace Mazechess.Function
         [Function("HttpScores")]
         public async Task<IActionResult> Run([Microsoft.Azure.Functions.Worker.HttpTrigger(Microsoft.Azure.Functions.Worker.AuthorizationLevel.Anonymous, "get", "post")] HttpRequest req)
         {
-            _logger.LogInformation("C# HTTP trigger function processed a request.");
-          
+             _logger.LogInformation("C# HTTP trigger function processed a request.");
+
+            if (req.Method == HttpMethods.Get)
+            {
+                // Handle GET request: return the high scores
+                return await GetHighScores();
+            }
+            else if (req.Method == HttpMethods.Post)
+            {
+                // Handle POST request: add a new high score
+                return await AddHighScore(req);
+            }
+
+            return new BadRequestResult();
+        }
+
+
+       [Function("Ping")]
+        public IActionResult Ping(
+         [Microsoft.Azure.Functions.Worker.HttpTrigger(Microsoft.Azure.Functions.Worker.AuthorizationLevel.Anonymous, "get", Route = "ping")] HttpRequest req)
+            {
+                _logger.LogInformation("Ping endpoint was called.");
+                return new OkObjectResult(new { message = "pong" });
+            }
+
+        private async Task<IActionResult> GetHighScores()
+        {
             try
             {
                 var container = cosmosClient.GetContainer(databaseId, containerId);
@@ -46,7 +71,7 @@ namespace Mazechess.Function
 
                 while (resultSet.HasMoreResults)
                 {
-                    FeedResponse<dynamic> response = await resultSet.ReadNextAsync(); // Await here requires async method
+                    FeedResponse<dynamic> response = await resultSet.ReadNextAsync();
                     foreach (var item in response)
                     {
                         highScores.Add(item);
@@ -59,6 +84,29 @@ namespace Mazechess.Function
             {
                 _logger.LogError($"CosmosDB query failed with error: {ex.Message}");
                 return new StatusCodeResult(500);
+            }
+        }
+
+        private async Task<IActionResult> AddHighScore(HttpRequest req)
+        {
+            try
+            {
+                string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+                var newScore = JsonConvert.DeserializeObject<dynamic>(requestBody);
+
+                var container = cosmosClient.GetContainer(databaseId, containerId);
+
+                // Create a new score entry
+                var result = await container.CreateItemAsync(newScore);
+
+                // Return a success message with the inserted data
+                return new OkObjectResult(new { message = "High score submitted successfully", score = result.Resource });
+            }
+            catch (CosmosException ex)
+            {
+                //_logger.LogError($"CosmosDB insertion failed with error: {ex.Message}");
+                 return new OkObjectResult(new { message = ex.Message });
+         
             }
         }
     }

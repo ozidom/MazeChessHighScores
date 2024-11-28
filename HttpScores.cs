@@ -63,7 +63,10 @@ namespace Mazechess.Function
             {
                 var container = cosmosClient.GetContainer(databaseId, containerId);
 
-                string queryString = "SELECT * FROM c ORDER BY c.moves ASC";
+                  string todayDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{todayDate}') ORDER BY c.moves, c.time ASC OFFSET 0 LIMIT 10";
+
                 QueryDefinition query = new QueryDefinition(queryString);
                 FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
 

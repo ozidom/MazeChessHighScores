@@ -91,39 +91,40 @@ namespace Mazechess.Function
         }
 
         private async Task<IActionResult> GetYesterdaysHighScores()
-{
-    try
-    {
-        var container = cosmosClient.GetContainer(databaseId, containerId);
-
-        // Get yesterday's date in UTC
-        string yesterdayDate = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
-
-        // Adjust the query to match yesterday's scores
-        string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{yesterdayDate}') ORDER BY c.moves, c.time ASC OFFSET 0 LIMIT 10";
-
-        QueryDefinition query = new QueryDefinition(queryString);
-        FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
-
-        List<dynamic> highScores = new List<dynamic>();
-
-        while (resultSet.HasMoreResults)
         {
-            FeedResponse<dynamic> response = await resultSet.ReadNextAsync();
-            foreach (var item in response)
+            try
             {
-                highScores.Add(item);
+                var container = cosmosClient.GetContainer(databaseId, containerId);
+
+                // Get yesterday's date in UTC
+                string yesterdayDate = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
+
+                // Adjust the query to match yesterday's scores
+                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{yesterdayDate}') ORDER BY c.moves, c.time ASC OFFSET 0 LIMIT 10";
+
+                QueryDefinition query = new QueryDefinition(queryString);
+                FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
+
+                List<dynamic> highScores = new List<dynamic>();
+
+                while (resultSet.HasMoreResults)
+                {
+                    FeedResponse<dynamic> response = await resultSet.ReadNextAsync();
+                    foreach (var item in response)
+                    {
+                        highScores.Add(item);
+                    }
+                }
+
+                return new OkObjectResult(JsonConvert.SerializeObject(highScores));
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError($"CosmosDB query failed with error: {ex.Message}");
+                return new StatusCodeResult(500);
             }
         }
 
-        return new OkObjectResult(JsonConvert.SerializeObject(highScores));
-    }
-    catch (CosmosException ex)
-    {
-        _logger.LogError($"CosmosDB query failed with error: {ex.Message}");
-        return new StatusCodeResult(500);
-    }
-}
 
         private async Task<IActionResult> AddHighScore(HttpRequest req)
         {

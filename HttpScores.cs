@@ -65,7 +65,7 @@ namespace Mazechess.Function
 
                   string todayDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{todayDate}') ORDER BY c.moves, c.time ASC OFFSET 0 LIMIT 10";
+                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{todayDate}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
 
                 QueryDefinition query = new QueryDefinition(queryString);
                 FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
@@ -100,7 +100,7 @@ namespace Mazechess.Function
                 string yesterdayDate = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
 
                 // Adjust the query to match yesterday's scores
-                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{yesterdayDate}') ORDER BY c.moves, c.time ASC OFFSET 0 LIMIT 10";
+                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{yesterdayDate}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
 
                 QueryDefinition query = new QueryDefinition(queryString);
                 FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);

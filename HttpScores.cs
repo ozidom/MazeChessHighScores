@@ -15,6 +15,15 @@ namespace Mazechess.Function
 {
     public class HttpScores
     {
+        public class HighScore
+        {
+            public string id { get; set; }
+            public string username { get; set; }
+            public int moves { get; set; }
+            public double time { get; set; }
+            public string timestamp { get; set; }
+        }
+
         private readonly ILogger<HttpScores> _logger;
         private static readonly string cosmosDbEndpoint = System.Environment.GetEnvironmentVariable("COSMOS_DB_ENDPOINT");
         private static readonly string cosmosDbKey = System.Environment.GetEnvironmentVariable("COSMOS_DB_KEY");
@@ -63,7 +72,7 @@ namespace Mazechess.Function
             {
                 var container = cosmosClient.GetContainer(databaseId, containerId);
 
-                  string todayDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
+                string todayDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
                 string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{todayDate}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
 
@@ -100,7 +109,7 @@ namespace Mazechess.Function
                 string yesterdayDate = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
 
                 // Adjust the query to match yesterday's scores
-                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{yesterdayDate}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
+                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp '{yesterdayDate}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
 
                 QueryDefinition query = new QueryDefinition(queryString);
                 FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
@@ -131,11 +140,18 @@ namespace Mazechess.Function
             try
             {
                 string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-                var newScore = JsonConvert.DeserializeObject<dynamic>(requestBody);
+                var newScore = JsonConvert.DeserializeObject<HighScore>(requestBody);
+
+                if (string.IsNullOrEmpty(newScore.username))
+                {
+                    return new BadRequestObjectResult(new { message = "Missing username (partition key)." });
+                }
+
+                newScore.id = newScore.id ?? Guid.NewGuid().ToString(); // Just in case
+                newScore.timestamp = DateTime.UtcNow.ToString("o");     // Overwrite if needed
+                
 
                 var container = cosmosClient.GetContainer(databaseId, containerId);
-
-                // Create a new score entry
                 var result = await container.CreateItemAsync(newScore);
 
                 // Return a success message with the inserted data
@@ -143,7 +159,7 @@ namespace Mazechess.Function
             }
             catch (CosmosException ex)
             {
-                //_logger.LogError($"CosmosDB insertion failed with error: {ex.Message}");
+                 _logger.LogError($"CosmosDB insertion failed with error: {ex.Message}");
                  return new OkObjectResult(new { message = ex.Message });
          
             }

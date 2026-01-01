@@ -71,26 +71,37 @@ namespace Mazechess.Function
             try
             {
                 var container = cosmosClient.GetContainer(databaseId, containerId);
+                List<dynamic> allHighScores = new List<dynamic>();
 
-                string todayDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
-
-                string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{todayDate}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
-
-                QueryDefinition query = new QueryDefinition(queryString);
-                FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
-
-                List<dynamic> highScores = new List<dynamic>();
-
-                while (resultSet.HasMoreResults)
+                // Get scores for the last 7 days
+                for (int i = 0; i < 7; i++)
                 {
-                    FeedResponse<dynamic> response = await resultSet.ReadNextAsync();
-                    foreach (var item in response)
+                    DateTime targetDate = DateTime.UtcNow.AddDays(-i);
+                    string dateString = targetDate.ToString("yyyy-MM-dd");
+
+                    // Insert a date header row
+                    allHighScores.Add(new
                     {
-                        highScores.Add(item);
+                        date = dateString,
+                        isDateHeader = true
+                    });
+
+                    // Query for the lowest 10 scores for this day
+                    string queryString = $"SELECT * FROM c WHERE STARTSWITH(c.timestamp, '{dateString}') ORDER BY c.moves ASC OFFSET 0 LIMIT 10";
+                    QueryDefinition query = new QueryDefinition(queryString);
+                    FeedIterator<dynamic> resultSet = container.GetItemQueryIterator<dynamic>(query);
+
+                    while (resultSet.HasMoreResults)
+                    {
+                        FeedResponse<dynamic> response = await resultSet.ReadNextAsync();
+                        foreach (var item in response)
+                        {
+                            allHighScores.Add(item);
+                        }
                     }
                 }
 
-                return new OkObjectResult(JsonConvert.SerializeObject(highScores));
+                return new OkObjectResult(JsonConvert.SerializeObject(allHighScores));
             }
             catch (CosmosException ex)
             {
